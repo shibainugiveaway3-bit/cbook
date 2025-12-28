@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cbook Pro Exchange</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
+    <style>
+        :root { --bg-dark: #101115; --bg-card: #1E2026; --primary: #FCD535; --green: #0ECB81; --red: #F6465D; --text-light: #EAECEF; }
+        body { background-color: var(--bg-dark); color: var(--text-light); font-family: 'Segoe UI', sans-serif; -webkit-tap-highlight-color: transparent; overflow: hidden; }
+        .btn-primary { background: #FCD535; color: #1E2329; font-weight: 800; border: none; transition: 0.2s; }
+        .card-ui { background-color: var(--bg-card); border-radius: 12px; }
+        .input-ui { background: #2B3139; color: white; padding: 12px; border-radius: 8px; width: 100%; outline: none; font-weight: bold; }
+        .input-ui:focus { border-color: var(--primary); border-width: 1px; }
+        #loader { position: fixed; inset: 0; background: var(--bg-dark); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .page-section { display: none; padding-bottom: 90px; height: 100vh; overflow-y: auto; }
+        .page-section.active { display: block; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from {opacity:0} to {opacity:1} }
+        .nav-item.active { color: var(--primary); }
+        
+        /* Scan Animation */
+        .scan-container { position: relative; width: 240px; height: 240px; margin: 0 auto; border-radius: 50%; overflow: hidden; border: 3px solid #333; box-shadow: 0 0 20px rgba(252, 213, 53, 0.2); }
+        .scan-line { position: absolute; width: 100%; height: 4px; background: #FCD535; top: 0; box-shadow: 0 0 15px #FCD535; animation: scanning 2s infinite linear; z-index: 10; opacity: 0.8; display: none; }
+        @keyframes scanning { 0% {top: 0;} 50% {top: 100%;} 100% {top: 0;} }
+    </style>
+</head>
+<body class="h-screen w-full">
+
+    <div id="loader">
+        <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-yellow-400 mb-4"></div>
+        <p class="text-[10px] font-bold tracking-[4px] text-gray-500 uppercase">Secure Exchange</p>
+    </div>
+
+    <div id="auth-section" class="hidden h-full flex flex-col justify-center px-6 overflow-y-auto">
+        <div class="mb-10 text-center">
+            <h1 class="text-3xl font-bold text-yellow-400 mb-1">CBOOK</h1>
+            <p class="text-gray-500 text-sm">Crypto Asset Exchange</p>
+        </div>
+        
+        <div id="login-form" class="space-y-4 w-full max-w-sm mx-auto">
+            <input type="email" id="login-email" placeholder="Email" class="input-ui">
+            <input type="password" id="login-pass" placeholder="Password" class="input-ui">
+            <button onclick="login()" class="w-full btn-primary py-3 rounded-lg text-sm">LOG IN</button>
+            <p class="text-center text-xs text-gray-500 mt-4">No account? <span onclick="toggleAuth('signup')" class="text-yellow-400 cursor-pointer font-bold">Register</span></p>
+        </div>
+
+        <div id="signup-form" class="hidden space-y-4 w-full max-w-sm mx-auto">
+            <input type="text" id="reg-name" placeholder="Full Name" class="input-ui">
+            <input type="email" id="reg-email" placeholder="Email" class="input-ui">
+            <input type="password" id="reg-pass" placeholder="Password" class="input-ui">
+            <button onclick="register()" class="w-full btn-primary py-3 rounded-lg text-sm">REGISTER</button>
+            <p class="text-center text-xs text-gray-500 mt-4">Has account? <span onclick="toggleAuth('login')" class="text-yellow-400 cursor-pointer font-bold">Log In</span></p>
+        </div>
+    </div>
+
+    <div id="app-section" class="hidden h-full flex flex-col">
+        <div class="px-4 py-3 flex justify-between items-center bg-[#1E2026] border-b border-[#2B3139]">
+            <div class="flex items-center gap-2">
+                <div class="w-7 h-7 bg-yellow-400 rounded-full flex items-center justify-center text-black font-bold text-xs" id="header-av">U</div>
+                <span class="font-bold text-sm tracking-wide text-white">Cbook<span class="text-yellow-400">Pro</span></span>
+            </div>
+            <div class="flex gap-4">
+                <i onclick="requestNotifPermission()" class="fas fa-bell text-gray-400 cursor-pointer hover:text-yellow-400"></i>
+                <i onclick="logout()" class="fas fa-sign-out-alt text-gray-400 cursor-pointer hover:text-red-500"></i>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-hidden relative bg-[#101115]">
+            <div id="page-home" class="page-section active px-0">
+                <div class="px-4 pt-4 pb-2">
+                    <p class="text-xs text-gray-500 font-bold mb-1">CBOOK/USDT</p>
+                    <div class="flex items-center gap-3">
+                        <h1 class="text-3xl font-bold text-white font-mono" id="home-price">0.0500</h1>
+                        <span id="home-pct" class="text-xs font-bold px-2 py-1 rounded bg-[#2ebd85]/20 text-[#0ecb81]">+0.00%</span>
+                    </div>
+                </div>
+                <div class="w-full h-[280px] mb-4 relative bg-[#131418]"><canvas id="priceChart"></canvas></div>
+                <div class="px-4 mb-6">
+                    <h3 class="text-xs text-gray-400 font-bold mb-3 uppercase">Market Stats</h3>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="card-ui p-3 border border-[#2B3139]"><p class="text-[10px] text-gray-500">24h High</p><p class="text-sm font-mono font-bold text-white">$<span id="stat-ath">--</span></p></div>
+                        <div class="card-ui p-3 border border-[#2B3139]"><p class="text-[10px] text-gray-500">24h Low</p><p class="text-sm font-mono font-bold text-white">$<span id="stat-atl">--</span></p></div>
+                        <div class="card-ui p-3 border border-[#2B3139]"><p class="text-[10px] text-gray-500">Market Cap</p><p class="text-sm font-mono font-bold text-yellow-400">$<span id="stat-mcap">--</span></p></div>
+                        <div class="card-ui p-3 border border-[#2B3139]"><p class="text-[10px] text-gray-500">Liquidity</p><p class="text-sm font-mono font-bold text-blue-400">$<span id="stat-liq">--</span></p></div>
+                        <div class="card-ui p-3 border border-[#2B3139]"><p class="text-[10px] text-gray-500">Max Supply</p><p class="text-sm font-mono font-bold text-white">21.0M</p></div>
+                        <div class="card-ui p-3 border border-[#2B3139]"><p class="text-[10px] text-gray-500">Circulation</p><p class="text-sm font-mono font-bold text-white"><span id="stat-circ">10.0</span>M</p></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="page-trade" class="page-section p-4">
+                <div class="flex justify-between items-center mb-4 pb-2 border-b border-[#2B3139]">
+                    <div class="text-lg font-bold text-white">Spot Trading</div>
+                    <div class="text-xs"><span class="text-gray-400">Price:</span> <span id="trade-live-price" class="text-[#0ecb81] font-bold font-mono">0.0500</span></div>
+                </div>
+                <div class="flex gap-4">
+                    <div class="w-[60%]">
+                        <div class="flex bg-[#2B3139] rounded p-0.5 mb-4">
+                            <button onclick="setTradeMode('buy')" id="btn-tab-buy" class="flex-1 py-2 text-xs font-bold rounded bg-[#0ecb81] text-white">Buy</button>
+                            <button onclick="setTradeMode('sell')" id="btn-tab-sell" class="flex-1 py-2 text-xs font-bold rounded text-gray-400">Sell</button>
+                        </div>
+                        <div class="space-y-3 mb-4">
+                            <div class="relative"><label class="text-[9px] text-gray-500 ml-1">Price (USD)</label><input type="number" id="trade-price" class="input-ui font-mono text-sm" placeholder="Market Price"><span onclick="useMarketPrice()" class="absolute right-2 top-8 text-[9px] bg-yellow-400 text-black px-1 rounded font-bold cursor-pointer">MARKET</span></div>
+                            <div class="relative"><label class="text-[9px] text-gray-500 ml-1">Amount</label><input type="number" id="trade-amount" oninput="calcEst()" class="input-ui font-mono text-sm" placeholder="0.00"><span class="absolute right-3 top-8 text-[10px] text-gray-500 font-bold" id="amt-sym">USD</span></div>
+                        </div>
+                        <div class="flex justify-between gap-1 mb-4">
+                            <button onclick="setPct(25)" class="flex-1 py-1 bg-[#2B3139] text-[9px] text-gray-300 rounded">25%</button>
+                            <button onclick="setPct(50)" class="flex-1 py-1 bg-[#2B3139] text-[9px] text-gray-300 rounded">50%</button>
+                            <button onclick="setPct(75)" class="flex-1 py-1 bg-[#2B3139] text-[9px] text-gray-300 rounded">75%</button>
+                            <button onclick="setPct(100)" class="flex-1 py-1 bg-[#2B3139] text-[9px] text-gray-300 rounded">100%</button>
+                        </div>
+                        <div class="flex justify-between text-[10px] text-gray-400 mb-4"><span>Avail: <span id="trade-avail" class="text-white font-mono">0.00</span></span><span>Est: <span id="trade-est" class="text-yellow-400 font-mono">0.00</span></span></div>
+                        <button onclick="placeOrder()" id="btn-action" class="w-full py-3 rounded font-bold text-sm bg-[#0ecb81] text-white shadow-lg active:scale-95 transition">Buy CBOOK</button>
+                    </div>
+                    <div class="w-[40%] pl-2 border-l border-[#2B3139]">
+                        <div class="text-[9px] text-gray-500 flex justify-between mb-1"><span>Price</span><span>Amt</span></div>
+                        <div id="ob-sell" class="space-y-0.5 mb-1"></div>
+                        <div class="text-center font-mono font-bold text-sm text-white my-1" id="ob-mid-price">0.0500</div>
+                        <div id="ob-buy" class="space-y-0.5"></div>
+                    </div>
+                </div>
+                <div class="mt-6"><h3 class="text-xs font-bold text-gray-400 uppercase mb-2">Open Orders</h3><div id="orders-list" class="space-y-2"></div></div>
+            </div>
+
+            <div id="page-wallet" class="page-section p-4">
+                <div class="bg-[#1E2026] p-6 rounded-2xl mb-6 shadow-lg relative overflow-hidden">
+                    <p class="text-gray-500 text-xs font-bold mb-1">Total Assets</p>
+                    <h2 class="text-3xl font-bold text-white mb-4">$<span id="wall-total">0.00</span></h2>
+                    <div class="flex gap-3">
+                        <button onclick="safeAction('deposit')" class="flex-1 bg-yellow-400 text-black py-2 rounded text-xs font-bold">Deposit</button>
+                        <button onclick="safeAction('withdraw')" class="flex-1 bg-[#2B3139] text-white py-2 rounded text-xs font-bold">Withdraw</button>
+                        <button onclick="safeAction('transfer')" class="flex-1 bg-[#2B3139] text-white py-2 rounded text-xs font-bold">Transfer</button>
+                    </div>
+                </div>
+                <div class="space-y-2 mb-6">
+                    <div class="flex justify-between items-center bg-[#1E2026] p-4 rounded-xl border border-[#2B3139]">
+                        <div class="flex items-center gap-3"><div class="w-8 h-8 rounded-full bg-green-900/20 flex items-center justify-center text-green-500 font-bold">$</div> <span class="text-sm font-bold text-white">USDT</span></div><p class="text-sm font-mono font-bold text-white">$<span id="wall-usd">0.00</span></p>
+                    </div>
+                    <div class="flex justify-between items-center bg-[#1E2026] p-4 rounded-xl border border-[#2B3139]">
+                        <div class="flex items-center gap-3"><div class="w-8 h-8 rounded-full bg-yellow-500/20 flex items-center justify-center text-yellow-500 font-bold">C</div> <span class="text-sm font-bold text-white">CBOOK</span></div><div class="text-right"><p class="text-sm font-mono font-bold text-white" id="wall-coin">0.00</p><p class="text-[10px] text-gray-500">≈ $<span id="wall-coin-val">0.00</span></p></div>
+                    </div>
+                </div>
+                <div class="bg-[#1E2026] rounded-xl p-4 border border-[#2B3139]">
+                    <h3 class="text-xs text-yellow-400 font-bold mb-3 uppercase flex items-center gap-2"><i class="fas fa-gift"></i> Rewards</h3>
+                    <div class="space-y-2">
+                        <div id="rw-dep" class="flex justify-between items-center p-2 rounded bg-black/20 text-[10px] text-gray-400"><span>First Deposit</span> <span>+1 CBK</span></div>
+                        <div id="rw-kyc" class="flex justify-between items-center p-2 rounded bg-black/20 text-[10px] text-gray-400"><span>KYC Verified</span> <span>+5 CBK</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="page-account" class="page-section p-4">
+                <div class="flex items-center gap-4 mb-8 bg-[#1E2026] p-4 rounded-xl border border-[#2B3139]">
+                    <div class="w-16 h-16 bg-gradient-to-tr from-gray-700 to-gray-800 rounded-full flex items-center justify-center text-2xl font-bold text-yellow-400 border-2 border-yellow-400" id="acc-img">U</div>
+                    <div>
+                        <h2 class="text-xl font-bold text-white" id="acc-name">User</h2>
+                        <p class="text-xs text-gray-400 font-mono mb-1" id="acc-email">...</p>
+                        <span id="kyc-tag" class="text-[10px] bg-red-500/10 text-red-500 px-2 py-0.5 rounded mt-1 inline-block border border-red-500/20 font-bold">Unverified</span>
+                    </div>
+                </div>
+                
+                <div onclick="openFaceVerify()" id="btn-face-verify" class="bg-blue-600 p-4 rounded-xl mb-4 shadow-lg flex items-center justify-between cursor-pointer">
+                    <div class="flex items-center gap-3"><i class="fas fa-camera text-white text-xl"></i><div><p class="text-sm font-bold text-white">Biometric Verification</p><p class="text-[10px] text-blue-100">Scan Face to Unlock Features</p></div></div><i class="fas fa-chevron-right text-white text-xs"></i>
+                </div>
+
+                <div class="bg-[#1E2026] rounded-xl overflow-hidden border border-[#2B3139]">
+                    <div class="p-4 border-b border-[#2B3139] flex justify-between items-center text-sm text-gray-300"><span>My Referral ID</span><span id="acc-ref" class="font-mono text-white bg-black/30 px-2 rounded">...</span></div>
+                    <div onclick="logout()" class="p-4 text-center text-red-500 font-bold text-sm cursor-pointer hover:bg-red-500/10 transition">Log Out</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-[#1E2026] border-t border-[#2B3139] px-6 py-3 flex justify-between z-20">
+            <div onclick="nav('home')" id="nav-home" class="nav-item active flex flex-col items-center w-12 cursor-pointer"><i class="fas fa-home text-lg mb-1"></i><span class="text-[9px] font-bold">Home</span></div>
+            <div onclick="nav('trade')" id="nav-trade" class="nav-item flex flex-col items-center w-12 cursor-pointer"><i class="fas fa-chart-bar text-lg mb-1"></i><span class="text-[9px] font-bold">Trade</span></div>
+            <div onclick="nav('wallet')" id="nav-wallet" class="nav-item flex flex-col items-center w-12 cursor-pointer"><i class="fas fa-wallet text-lg mb-1"></i><span class="text-[9px] font-bold">Wallet</span></div>
+            <div onclick="nav('account')" id="nav-account" class="nav-item flex flex-col items-center w-12 cursor-pointer"><i class="fas fa-user text-lg mb-1"></i><span class="text-[9px] font-bold">Account</span></div>
+        </div>
+    </div>
+
+    <div id="modal-face" class="fixed inset-0 bg-black/95 hidden z-[99] flex flex-col items-center justify-center p-6 text-center">
+        <h3 class="text-lg font-bold text-white mb-2">Face Verification</h3>
+        <p class="text-xs text-gray-400 mb-6">One Face = One Account</p>
+        <div class="scan-container mb-6 relative bg-black">
+            <video id="face-video" class="w-full h-full object-cover" autoplay playsinline muted></video>
+            <div class="scan-line" id="scan-line"></div>
+        </div>
+        <div class="flex gap-3 w-full max-w-xs">
+            <button onclick="closeFaceVerify()" class="flex-1 bg-gray-700 text-white py-3 rounded-lg font-bold text-xs">Cancel</button>
+            <button onclick="captureFace()" id="btn-scan" class="flex-1 bg-green-500 text-white py-3 rounded-lg font-bold text-xs">Scan Face</button>
+        </div>
+    </div>
+
+    <div id="modal-transfer" class="fixed inset-0 bg-black/90 hidden z-50 flex items-center justify-center p-4"><div class="bg-[#1E2026] w-full max-w-sm p-6 rounded-xl border border-[#2B3139] relative"><i onclick="closeModal('transfer')" class="fas fa-times absolute top-4 right-4 text-gray-400 cursor-pointer"></i><h3 class="text-white font-bold mb-4">Transfer</h3><input id="tr-email" type="email" placeholder="Email" class="input-ui mb-3"><div class="flex gap-2 mb-3"><select id="tr-asset" class="input-ui flex-1"><option value="usd">USDT</option><option value="coin">CBOOK</option></select><input id="tr-amount" type="number" placeholder="Amt" class="input-ui flex-[2]"></div><button onclick="doTransfer()" class="w-full btn-primary py-3 rounded font-bold text-sm">Send</button></div></div>
+    
+    <div id="modal-deposit" class="fixed inset-0 bg-black/90 hidden z-50 flex items-center justify-center p-4"><div class="bg-[#1E2026] w-full max-w-sm p-6 rounded-xl border border-[#2B3139] relative"><i onclick="closeModal('deposit')" class="fas fa-times absolute top-4 right-4 text-gray-400 cursor-pointer"></i><h3 class="text-white font-bold mb-4">Deposit</h3><div class="flex gap-2 mb-4"><button onclick="setDep('bnb')" class="flex-1 bg-yellow-400 text-black text-xs py-2 rounded font-bold">BNB</button><button onclick="setDep('cb')" class="flex-1 text-gray-400 text-xs py-2 rounded font-bold border border-gray-600">Internal</button></div><div id="dep-bnb"><div class="bg-black/30 p-3 rounded mb-3"><p class="text-[10px] text-gray-500">Wallet</p><p id="admin-addr" class="text-xs text-white font-mono break-all select-all">Loading...</p></div><input id="dep-amt" type="number" placeholder="Amt" class="input-ui mb-2 text-sm"><input id="dep-tx" type="text" placeholder="TxID" class="input-ui mb-4 text-sm"><button onclick="doDeposit()" class="w-full btn-primary py-3 rounded text-sm">Confirm</button></div><div id="dep-cb" class="hidden text-center py-4"><p class="text-gray-400 text-xs">Your ID</p><p id="my-cb-id" class="text-yellow-400 font-mono text-sm select-all">...</p></div></div></div>
+    
+    <div id="modal-withdraw" class="fixed inset-0 bg-black/90 hidden z-50 flex items-center justify-center p-4"><div class="bg-[#1E2026] w-full max-w-sm p-6 rounded-xl border border-[#2B3139] relative"><i onclick="closeModal('withdraw')" class="fas fa-times absolute top-4 right-4 text-gray-400 cursor-pointer"></i><h3 class="text-white font-bold mb-4">Withdraw</h3><select id="wd-asset" class="input-ui mb-3"><option value="usd">USDT (Fee: 1.0)</option><option value="coin">CBOOK (Fee: 0.5)</option></select><input id="wd-addr" type="text" placeholder="Address" class="input-ui mb-3 text-sm"><input id="wd-amt" type="number" placeholder="Amt" class="input-ui mb-4 text-sm"><button onclick="doWithdraw()" class="w-full btn-primary py-3 rounded text-sm bg-red-500 text-white">Request</button></div></div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <script>
+        // CONFIG
+        const firebaseConfig = { apiKey: "AIzaSyC1cOGoXTwSIxF3F_bOvaGRFFXkPsm48_0", authDomain: "cbook-553df.firebaseapp.com", databaseURL: "https://cbook-553df-default-rtdb.firebaseio.com", projectId: "cbook-553df", storageBucket: "cbook-553df.firebasestorage.app", messagingSenderId: "982105237116", appId: "1:982105237116:web:107964326b5a0681b7cbf9" };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth(), db = firebase.database();
+
+        let curUser=null, userData={}, market={price:0.05, liquidity:500000}, tradeMode='buy', chartObj;
+        let lastBalUSD = -1, lastBalCoin = -1; let videoStream = null;
+
+        // INIT
+        auth.onAuthStateChanged(u => {
+            document.getElementById('loader').style.display = 'none';
+            if(u){ curUser=u; document.getElementById('auth-section').classList.add('hidden'); document.getElementById('app-section').classList.remove('hidden'); requestNotifPermission(); loadData(); loadMarket(); initChart(); } 
+            else { document.getElementById('auth-section').classList.remove('hidden'); document.getElementById('app-section').classList.add('hidden'); }
+        });
+
+        // FACE AI SYSTEM (UPDATED FOR BETTER DEBUGGING)
+        async function openFaceVerify() {
+            if(userData.kyc_status === 'verified') return Swal.fire('Verified', 'You are already verified!', 'success');
+            
+            document.getElementById('modal-face').classList.remove('hidden');
+            const btn = document.getElementById('btn-scan');
+            btn.innerText = "Loading AI...";
+            btn.disabled = true; 
+            
+            try {
+                // Load models directly from CDN
+                const modelURL = 'https://justadudewhohacks.github.io/face-api.js/models';
+                await faceapi.nets.tinyFaceDetector.loadFromUri(modelURL);
+                await faceapi.nets.faceLandmark68Net.loadFromUri(modelURL);
+                await faceapi.nets.faceRecognitionNet.loadFromUri(modelURL);
+
+                btn.innerText = "Starting Camera...";
+                
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                videoStream = stream;
+                
+                const videoEl = document.getElementById('face-video');
+                videoEl.srcObject = stream;
+                
+                videoEl.onloadedmetadata = () => {
+                    videoEl.play();
+                    document.getElementById('scan-line').style.display = 'block';
+                    btn.innerText = "Scan Face";
+                    btn.disabled = false;
+                };
+
+            } catch(e) {
+                console.error(e);
+                closeFaceVerify();
+                let msg = "Camera access denied or HTTPS required.";
+                if(location.protocol !== 'https:') msg += " Please upload to Netlify/Vercel.";
+                Swal.fire('Error', msg, 'error');
+            }
+        }
+
+        function closeFaceVerify() {
+            document.getElementById('modal-face').classList.add('hidden');
+            if(videoStream) { videoStream.getTracks().forEach(t=>t.stop()); videoStream=null; }
+        }
+
+        async function captureFace() {
+            const video = document.getElementById('face-video');
+            document.getElementById('btn-scan').innerText = "Processing...";
+            
+            // Detect Face
+            const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+            
+            if(!detection) {
+                document.getElementById('btn-scan').innerText = "Scan Face";
+                return Swal.fire('Retry', 'Face not detected. Center face in frame.', 'warning');
+            }
+
+            const currentDescriptor = Array.from(detection.descriptor); 
+
+            // Check Uniqueness
+            db.ref('face_signatures').once('value', async (snap) => {
+                let isUnique = true;
+                const allFaces = snap.val() || {};
+                
+                for (const uid in allFaces) {
+                    const savedDesc = allFaces[uid];
+                    const dist = faceapi.euclideanDistance(currentDescriptor, savedDesc);
+                    if (dist < 0.45) { // Match found
+                        isUnique = false;
+                        break;
+                    }
+                }
+
+                if (isUnique) {
+                    await db.ref('face_signatures/'+curUser.uid).set(currentDescriptor);
+                    await db.ref('users/'+curUser.uid).update({kyc_status: 'verified'});
+                    closeFaceVerify();
+                    Swal.fire('Success', 'Identity Verified!', 'success');
+                    updateUI();
+                } else {
+                    document.getElementById('btn-scan').innerText = "Scan Face";
+                    Swal.fire('Failed', 'This face is already linked to another account.', 'error');
+                }
+            });
+        }
+
+        // DATA & NOTIFICATIONS
+        function loadData(){
+            db.ref('users/'+curUser.uid).on('value', s => {
+                const data = s.val() || {balance_usd:0, balance_cbook:0};
+                if(lastBalUSD!==-1 && data.balance_usd>lastBalUSD) showNotification("Received", `+ $${(data.balance_usd-lastBalUSD).toFixed(2)} USD`);
+                if(lastBalCoin!==-1 && data.balance_cbook>lastBalCoin) showNotification("Received", `+ ${(data.balance_cbook-lastBalCoin).toFixed(2)} CBK`);
+                lastBalUSD = data.balance_usd; lastBalCoin = data.balance_cbook; userData = data; updateUI(); checkRewards();
+            });
+        }
+        function loadMarket(){
+            db.ref('market').on('value', s => { if(s.exists()){ market = s.val(); updateMarketUI(); if(chartObj) pushChart(market.price); checkOrders(market.price); } });
+            db.ref('settings/admin_wallet').on('value', s => { if(s.exists()) document.getElementById('admin-addr').innerText = s.val(); });
+        }
+        function requestNotifPermission() { if("Notification" in window) Notification.requestPermission(); }
+        function showNotification(t,b){ if(Notification.permission==="granted") new Notification("CBOOK", {body:`${t}: ${b}`}); }
+
+        // CHART
+        function initChart(){
+            const ctx = document.getElementById('priceChart').getContext('2d');
+            chartObj = new Chart(ctx, { type: 'line', data: { labels: Array(60).fill(''), datasets: [{ data: Array(60).fill(0.05), borderColor: '#FCD535', borderWidth: 2, backgroundColor: (ctx)=>{const bg=ctx.chart.ctx.createLinearGradient(0,0,0,300);bg.addColorStop(0,'rgba(252,213,53,0.15)');bg.addColorStop(1,'rgba(252,213,53,0)');return bg;}, fill: true, pointRadius: 0, tension: 0.1 }] }, options: { responsive: true, maintainAspectRatio: false, animation: false, scales: { x: {display:false}, y: {position:'right', grid:{color:'#2B3139'}, ticks:{color:'#848E9C'}} }, plugins: {legend:{display:false}} } });
+        }
+        function pushChart(p){ if(!chartObj) return; const d=chartObj.data.datasets[0].data; d.push(p); d.shift(); chartObj.update(); }
+        
+        function updateMarketUI(){
+            const p=market.price; document.getElementById('home-price').innerText=p.toFixed(4); document.getElementById('trade-live-price').innerText=p.toFixed(4); document.getElementById('ob-mid-price').innerText=p.toFixed(4);
+            document.getElementById('stat-mcap').innerText=((p*21000000)/1000000).toFixed(2)+'M'; document.getElementById('stat-liq').innerText=Math.floor(market.liquidity).toLocaleString(); document.getElementById('stat-ath').innerText=(market.ath||p*1.1).toFixed(4); document.getElementById('stat-atl').innerText=(market.atl||p*0.9).toFixed(4);
+            updateUI();
+        }
+        function updateUI(){
+            const u=userData; const p=market.price||0.05;
+            document.getElementById('wall-total').innerText=((u.balance_usd||0)+((u.balance_cbook||0)*p)).toFixed(2);
+            document.getElementById('wall-usd').innerText=(u.balance_usd||0).toFixed(2); document.getElementById('wall-coin').innerText=(u.balance_cbook||0).toFixed(4); document.getElementById('wall-coin-val').innerText=((u.balance_cbook||0)*p).toFixed(2);
+            document.getElementById('trade-avail').innerText=(tradeMode==='buy'?u.balance_usd:u.balance_cbook||0).toFixed(4);
+            if(u.name){ document.getElementById('header-av').innerText=u.name[0]; document.getElementById('acc-img').innerText=u.name[0]; document.getElementById('acc-name').innerText=u.name; document.getElementById('acc-email').innerText=curUser.email; document.getElementById('acc-ref').innerText=u.refCode||'...'; document.getElementById('my-cb-id').innerText='cbook-'+curUser.uid; }
+            if(u.kyc_status==='verified') { document.getElementById('kyc-tag').innerText="Verified"; document.getElementById('kyc-tag').className="text-[10px] bg-green-500/20 text-green-500 px-2 py-0.5 rounded font-bold border border-green-500/20"; document.getElementById('btn-face-verify').classList.add('hidden'); }
+        }
+
+        // TRADE
+        function setTradeMode(m){ tradeMode=m; useMarketPrice(); updateUI(); if(m==='buy'){document.getElementById('btn-tab-buy').className='flex-1 py-2 text-xs font-bold rounded bg-[#0ecb81] text-white shadow';document.getElementById('btn-tab-sell').className='flex-1 py-2 text-xs font-bold rounded text-gray-400';document.getElementById('btn-action').className='w-full py-3 rounded-lg font-bold text-sm bg-[#0ecb81] text-white shadow-lg active:scale-95 transition';document.getElementById('btn-action').innerText='Buy CBOOK';document.getElementById('amt-sym').innerText='USD';}else{document.getElementById('btn-tab-sell').className='flex-1 py-2 text-xs font-bold rounded bg-[#f6465d] text-white shadow';document.getElementById('btn-tab-buy').className='flex-1 py-2 text-xs font-bold rounded text-gray-400';document.getElementById('btn-action').className='w-full py-3 rounded-lg font-bold text-sm bg-[#f6465d] text-white shadow-lg active:scale-95 transition';document.getElementById('btn-action').innerText='Sell CBOOK';document.getElementById('amt-sym').innerText='CBK';} }
+        function useMarketPrice(){ document.getElementById('trade-price').value = market.price.toFixed(4); calcEst(); }
+        function setOrderType(t){ if(t==='market') useMarketPrice(); }
+        function setPct(p){ const b = tradeMode==='buy'?userData.balance_usd:userData.balance_cbook; document.getElementById('trade-amount').value = ((b||0)*(p/100)).toFixed(4); calcEst(); }
+        function calcEst(){ const p=parseFloat(document.getElementById('trade-price').value)||market.price; const a=parseFloat(document.getElementById('trade-amount').value)||0; document.getElementById('trade-est').innerText=(tradeMode==='buy'?a/p:a*p).toFixed(4); }
+        function placeOrder(){
+            const p=parseFloat(document.getElementById('trade-price').value), a=parseFloat(document.getElementById('trade-amount').value);
+            if(!p||!a) return Swal.fire('Error','Invalid','error');
+            let uVal, cVal; if(tradeMode==='buy'){ uVal=a; cVal=a/p; if((userData.balance_usd||0)<uVal) return Swal.fire('Error','Low USD','error'); db.ref('users/'+curUser.uid).update({balance_usd:userData.balance_usd-uVal}); } else { cVal=a; uVal=a*p; if((userData.balance_cbook||0)<cVal) return Swal.fire('Error','Low Coin','error'); db.ref('users/'+curUser.uid).update({balance_cbook:userData.balance_cbook-cVal}); }
+            if(Math.abs(p - market.price) < (market.price*0.02)){ const k=tradeMode==='buy'?'balance_cbook':'balance_usd'; const g=tradeMode==='buy'?cVal:uVal; db.ref('users/'+curUser.uid).once('value',s=>{ db.ref('users/'+curUser.uid).update({[k]:(s.val()[k]||0)+g}); }); db.ref('market').transaction(m=>{ if(m){ m.prev_price=m.price; if(tradeMode==='buy') m.liquidity+=uVal; else m.liquidity-=uVal; m.liquidity=Math.max(1000,m.liquidity); m.price=m.liquidity/m.supply_circulating; m.volume_24h+=uVal; } return m; }); Swal.fire({title:'Success',text:'Filled',icon:'success',toast:true,position:'top'}); }
+            else { db.ref('orders').push({uid:curUser.uid, type:tradeMode, price:p, amt_usd:uVal, amt_coin:cVal, status:'open'}); Swal.fire({title:'Placed',text:'Limit Order',icon:'info',toast:true,position:'top'}); }
+            document.getElementById('trade-amount').value='';
+        }
+
+        // OTHERS
+        function safeAction(t){ if(userData.kyc_status!=='verified') return Swal.fire({title:'Verify Face',text:'Required for actions',icon:'warning',confirmButtonColor:'#FCD535'}).then(r=>{if(r.isConfirmed)nav('account')}); openModal(t); }
+        function doTransfer(){ const e=document.getElementById('tr-email').value, a=parseFloat(document.getElementById('tr-amount').value), t=document.getElementById('tr-asset').value, k=t==='usd'?'balance_usd':'balance_cbook'; if((userData[k]||0)<a) return Swal.fire('Error','Low Balance','error'); db.ref('users').orderByChild('email').equalTo(e).once('value',s=>{ if(!s.exists()) return Swal.fire('Error','User Not Found','error'); const rid=Object.keys(s.val())[0]; const u={}; u[`users/${curUser.uid}/${k}`]=(userData[k]||0)-a; u[`users/${rid}/${k}`]=(s.val()[rid][k]||0)+a; db.ref().update(u).then(()=>{closeModal('transfer');Swal.fire('Sent','Success','success')}); }); }
+        function doDeposit(){ db.ref('deposits').push({uid:curUser.uid,email:curUser.email,amount:parseFloat(document.getElementById('dep-amt').value),txId:document.getElementById('dep-tx').value,status:'pending'}).then(()=>{closeModal('deposit');Swal.fire('Sent','Pending','success');}); }
+        function doWithdraw(){ const a=document.getElementById('wd-asset').value,amt=parseFloat(document.getElementById('wd-amt').value),addr=document.getElementById('wd-addr').value,fee=a==='usd'?1:0.5,k=a==='usd'?'balance_usd':'balance_cbook'; if((userData[k]||0)<(amt+fee))return Swal.fire('Error','Low Bal','error');db.ref('users/'+curUser.uid).update({[k]:userData[k]-(amt+fee)}).then(()=>{db.ref('withdrawals').push({uid:curUser.uid,asset:a,amount:amt,address:addr,fee:fee,status:'pending'});closeModal('withdraw');Swal.fire('Success','Requested','success');}); }
+        function checkRewards(){ const u=userData; if(u.kyc_status!=='verified') return; if(u.balance_usd>0&&!u.bonus_flag_dep) giveRw('bonus_flag_dep',1); if(u.kyc_status==='verified'&&!u.bonus_flag_kyc) giveRw('bonus_flag_kyc',5); if(u.bonus_flag_dep) styleRw('rw-dep'); if(u.bonus_flag_kyc) styleRw('rw-kyc'); }
+        function giveRw(f,a){ db.ref('users/'+curUser.uid).update({[f]:true, balance_cbook:(userData.balance_cbook||0)+a}); }
+        function styleRw(id){ document.getElementById(id).className="flex justify-between items-center p-2 rounded bg-green-500/20 text-[10px] text-green-500 font-bold border border-green-500/30"; }
+        function checkOrders(cp){ db.ref('orders').orderByChild('uid').equalTo(curUser.uid).once('value',s=>{ const l=document.getElementById('orders-list'); l.innerHTML=''; s.forEach(c=>{ const o=c.val(); if(o.status==='open') { l.innerHTML+=`<div class="flex justify-between items-center bg-[#1E2026] p-2 rounded text-xs mb-1 border-l-2 ${o.type==='buy'?'border-green-500':'border-red-500'}"><span class="text-white font-bold uppercase">${o.type}</span> <span class="text-gray-400">${o.amt_coin.toFixed(2)} @ ${o.price}</span> <i class="fas fa-times text-gray-500 cursor-pointer" onclick="db.ref('orders/${c.key}').remove()"></i></div>`; if((o.type==='buy'&&cp<=o.price)||(o.type==='sell'&&cp>=o.price)){ db.ref('orders/'+c.key).update({status:'filled'}); const k=o.type==='buy'?'balance_cbook':'balance_usd', g=o.type==='buy'?o.amt_coin:o.amt_usd; db.ref('users/'+curUser.uid).update({[k]:(userData[k]||0)+g}); db.ref('market').transaction(m=>{ if(m){ m.prev_price=m.price; if(o.type==='buy') m.liquidity+=o.amt_usd; else m.liquidity-=o.amt_usd; m.liquidity=Math.max(1000,m.liquidity); m.price=m.liquidity/m.supply_circulating; m.volume_24h+=o.amt_usd; } return m; }); showNotification("Order Filled",`Your ${o.type} order executed`); } } }); }); }
+
+        function toggleAuth(t){if(t==='signup'){document.getElementById('login-form').classList.add('hidden');document.getElementById('signup-form').classList.remove('hidden');}else{document.getElementById('signup-form').classList.add('hidden');document.getElementById('login-form').classList.remove('hidden');}}
+        function register(){const n=document.getElementById('reg-name').value,e=document.getElementById('reg-email').value,p=document.getElementById('reg-pass').value;auth.createUserWithEmailAndPassword(e,p).then(c=>{db.ref('users/'+c.user.uid).set({name:n,email:e,balance_usd:0,balance_cbook:0,kyc_status:'unverified',refCode:Math.random().toString(36).substr(2,6).toUpperCase()}).then(()=>{toggleAuth('login');Swal.fire('Success','Login now','success');});}).catch(e=>Swal.fire('Error',e.message,'error'));}
+        function login(){auth.signInWithEmailAndPassword(document.getElementById('login-email').value,document.getElementById('login-pass').value).catch(e=>Swal.fire('Error',e.message,'error'));}
+        function logout(){auth.signOut();location.reload();}
+        function nav(p){document.querySelectorAll('.page-section').forEach(e=>e.classList.remove('active'));document.getElementById('page-'+p).classList.add('active');document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));document.getElementById('nav-'+p).classList.add('active');}
+        function openModal(id){document.getElementById('modal-'+id).classList.remove('hidden')}
+        function closeModal(id){document.getElementById('modal-'+id).classList.add('hidden')}
+        function setDep(t){if(t==='cb'){document.getElementById('dep-bnb').classList.add('hidden');document.getElementById('dep-cb').classList.remove('hidden');}else{document.getElementById('dep-cb').classList.add('hidden');document.getElementById('dep-bnb').classList.remove('hidden');}}
+        function submitKYC(){nav('account');openFaceVerify();}
+        function copyText(id){navigator.clipboard.writeText(document.getElementById(id).innerText).then(()=>Swal.fire({title:'Copied',toast:true,position:'top',timer:1000,showConfirmButton:false}));}
+    </script>
+</body>
+</html>
